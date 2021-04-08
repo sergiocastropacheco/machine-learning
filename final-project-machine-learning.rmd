@@ -1,0 +1,104 @@
+---
+title: "Practical Machine Learning: \n Identifying bad tecnhique in lifting"
+author: "Sergio"
+date: "8/4/2021"
+output: html_document
+---
+
+Machine learning is very nice. This is the final project from the course Practical Machine Learning, given by the John Hopkins University via Coursera.
+
+In this project, the goal was be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. So, the idea . The data was kindly delivered by the [Human Activity Recognition](http://web.archive.org/web/20161224072740/http:/groupware.les.inf.puc-rio.br/har) Project.
+
+Both the  [training data](https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv) and the [Final Test](https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv) are available for the public.
+
+# Loading the required libraries
+
+```{r setup}
+library(caret)
+library(ggplot2)
+library(randomForest)
+```
+
+# Reading and cleaning the data
+
+```{r read, cache= T}
+Training <- read.csv("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv")
+Final_Test <- read.csv("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv")
+dim(Training)
+dim(Final_Test)
+```
+
+Data for training has 19622 observations on 160 variables, and the testing data set has only 20 observations with 160 variables.
+
+
+#  Preparing a tidy data set
+
+Let's see what the data set is
+```{r, cache= T}
+str(Training)
+```
+
+So, first variable is just an index and I don't want it. neither do I want the username cause I don't consider it a useful variable. Similar with all the 7 first variables
+```{r, cache= T}
+Training <- Training[,-c(1:7)]
+dim(Training)
+```
+
+There is also a lot of variables with a bunch of NA's and I don't want them.
+```{r, cache= T}
+mynearzero <- nearZeroVar(Training)
+Training <- Training[,-mynearzero]
+dim(Training)
+```
+
+Also, there is a bunch of columns with missing data. So, in the next line, I will erase all those columns whose NA values are more than 60% of the number of rows.
+```{r, cache= T}
+Training <- Training[, colSums(is.na(Training)) <= nrow(Training)*0.6]
+
+
+```
+
+Finally, let's convert the data columns to the right format. All are numeric except the last, which is class, the one we actually want to predict.
+```{r, cache= T}
+cols <- c(1:52)
+Training[,cols] <- sapply(Training[,cols],as.numeric)
+Training$classe <- as.factor(Training$classe)
+```
+
+# Splitting the training data set
+
+The Final Test data set will only be used by the course to demonstrate that the model is working, and it is very small. Thus, I have to split my "training" data set into two datasets, one will actually work to train the model and the other to test it before submission. I will choose 60% of the data to train and 40% to test. This is kindly done by the package caret.
+
+```{r split, cache= T}
+toTrain <- createDataPartition(y=Training$classe, p=0.6, list=FALSE)
+TrainSet <- Training[toTrain, ]
+TestSet <- Training[-toTrain, ]
+dim(TrainSet); dim(TestSet)
+```
+
+# Building a model
+
+There is a ton of different models I could try. I am going to start with Random Forests because we know it's highly accurate. We know it's less scalable, but for the moment that is not important.
+
+```{r model, cachet= T}
+#Creating the model
+RF_model <- randomForest(classe~. , data=TrainSet)
+
+#Using it to predict
+RF_predictions <- predict(RF_model, TestSet, type = "class")
+
+#Checking how predictions went with my mini test set.
+confusionMatrix(RF_predictions, TestSet$classe)
+```
+So, accuracy is 99,45%. High enough, I will take it. I could try other models and test them, and maybe combine them. But as I am typing I also have a pizza in the oven, so let's leave it like this.
+
+
+# A final challenge with 20 incognito data points 
+
+Only Coursera and God will know if it's wrong or if it's right...
+
+```{r testing}
+mYpRedIctIonS <- predict(RF_model,Final_Test)
+mYpRedIctIonS
+
+```
